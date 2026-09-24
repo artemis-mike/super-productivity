@@ -2,11 +2,12 @@
 #
 # Usage:
 #   1. Copy env.example to .env and configure your settings
-#   2. Run: ./scripts/deploy.sh
+#   2. Run: docer compose up -d
 #   3. View logs: docker-compose logs -f
 #
-# For local builds (development):
-#   ./scripts/deploy.sh --build
+# Update to a new version:
+#   1. Run docker compose down && docker compose up -d
+#   2. View logs: docker-compose logs -f
 
 x-logging: &default-logging
   driver: 'json-file'
@@ -23,6 +24,42 @@ x-logging-app: &app-logging
     max-file: '30'
 
 services:
+  supersync-migrations:
+    # Only `latest` and `master-<sha>` are published, both built from master — there
+    # are no release tags. Pin SUPERSYNC_IMAGE to a master-<sha> for a fixed version.
+    image: ${SUPERSYNC_IMAGE:-ghcr.io/super-productivity/supersync:latest}
+    container_name: supersync-server-migrations
+    restart: no
+    pull_policy: always
+    # Modifed CMD from https://github.com/super-productivity/super-productivity/blob/master/packages/super-sync-server/Dockerfile
+    command: ["sh", "-c", "sh scripts/migrate-deploy.sh || exit 1;"]
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://${POSTGRES_USER:-supersync}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-supersync}?connection_limit=60&pool_timeout=10}
+      - REQUIRE_DATABASE_POOL_LIMITS=true
+      - MIGRATE_RECOVERY_RUNTIME=compose
+    volumes:
+      - supersync-data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # 200+ WSS clients each consume an fd; Alpine default soft limit (1024)
+    # would be tight under reconnect bursts.
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    mem_limit: 768m
+    cpus: '1.0'
+    networks:
+      - internal
+    logging: *app-logging
+
   supersync:
     # Only `latest` and `master-<sha>` are published, both built from master — there
     # are no release tags. Pin SUPERSYNC_IMAGE to a master-<sha> for a fixed version.
@@ -88,6 +125,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      supersync-migrations:
+        condition: service_completed_successfully # wait for migrations container to finish
     healthcheck:
       test:
         [
