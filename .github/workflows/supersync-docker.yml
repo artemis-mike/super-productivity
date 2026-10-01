@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - **  # remove before merging to upstream project
     paths:
       - '.dockerignore'
       - '.github/workflows/supersync-docker.yml'
