@@ -1,8 +1,8 @@
 [
   {
     "class": "reorder-wedge",
-    "ref": "#10377",
-    "name": "two concurrent habit reorders stop the second device",
+    "ref": "fixed for #10377 (regression pin)",
+    "name": "two concurrent habit reorders converge",
     "steps": [
       {
         "d": "A",
@@ -13,18 +13,13 @@
         "a": ["reorderHabits", 5, 0]
       }
     ],
-    "primary": "stop:SYNC_MULTI_ENTITY_UNSUPPORTED side=remote actionType=[SimpleCounter] Update SimpleCounter Order",
-    "signatures": [
-      "divergence:.simpleCounter.ids.*",
-      "pending",
-      "stop:SYNC_MULTI_ENTITY_UNSUPPORTED side=remote actionType=[SimpleCounter] Update SimpleCounter Order"
-    ],
+    "signatures": [],
     "rejections": []
   },
   {
     "class": "reorder-wedge",
-    "ref": "#10377",
-    "name": "a device stopped by competing habit reorders never uploads a task it adds",
+    "ref": "fixed for #10377 (regression pin)",
+    "name": "a device with a competing habit reorder uploads a task it adds",
     "steps": [
       {
         "d": "A",
@@ -39,22 +34,13 @@
         "a": ["addTask", "t13", "P"]
       }
     ],
-    "primary": "stop:SYNC_MULTI_ENTITY_UNSUPPORTED side=remote actionType=[SimpleCounter] Update SimpleCounter Order",
-    "signatures": [
-      "divergence:.project.entities.*.taskIds.*",
-      "divergence:.simpleCounter.ids.*",
-      "divergence:.task.entities.*",
-      "divergence:.task.ids.*",
-      "lost-entity:task",
-      "pending",
-      "stop:SYNC_MULTI_ENTITY_UNSUPPORTED side=remote actionType=[SimpleCounter] Update SimpleCounter Order"
-    ],
+    "signatures": [],
     "rejections": []
   },
   {
     "class": "reorder-wedge",
-    "ref": "#10377",
-    "name": "a project note reorder crossing a delete stops the deleting device",
+    "ref": "fixed for #10377 (regression pin)",
+    "name": "a project note reorder crossing a delete converges",
     "steps": [
       {
         "d": "B",
@@ -65,15 +51,8 @@
         "a": ["reorderNotes", "P", 3, 0]
       }
     ],
-    "primary": "stop:SYNC_MULTI_ENTITY_UNSUPPORTED side=remote actionType=[Note] Update Note Order",
-    "signatures": [
-      "divergence:.note.entities.*",
-      "divergence:.note.ids.*",
-      "divergence:.project.entities.*.noteIds.*",
-      "pending",
-      "stop:SYNC_MULTI_ENTITY_UNSUPPORTED side=remote actionType=[Note] Update Note Order"
-    ],
-    "rejections": []
+    "signatures": [],
+    "rejections": ["CONFLICT_CONCURRENT [Note] Delete Note"]
   },
   {
     "class": "remote-win-keeps-local-edit",
@@ -205,7 +184,7 @@
   },
   {
     "class": "whole-entity-lww-drops-fields",
-    "ref": "#10379",
+    "ref": "fixed by #10415 (regression pin)",
     "name": "done status is lost when both devices also rename the task",
     "steps": [
       {
@@ -221,13 +200,12 @@
         "a": ["renameTask", "t2", "C28"]
       }
     ],
-    "primary": "field-reverted:task.isDone",
-    "signatures": ["field-reverted:task.isDone"],
-    "rejections": ["CONFLICT_CONCURRENT [TASK] LWW Update"]
+    "signatures": [],
+    "rejections": []
   },
   {
     "class": "whole-entity-lww-drops-fields",
-    "ref": "#10379",
+    "ref": "fixed by #10415 (regression pin)",
     "name": "tracked time is lost to a later concurrent rename",
     "steps": [
       {
@@ -248,8 +226,7 @@
         "a": ["renameTask", "t2", "C29"]
       }
     ],
-    "primary": "time-loss:task",
-    "signatures": ["time-loss:task"],
+    "signatures": [],
     "rejections": []
   },
   {
@@ -313,8 +290,8 @@
   },
   {
     "class": "commuting-edit-beside-local-win",
-    "ref": "#10385",
-    "name": "a task notes edit downloaded beside a done toggle the device wins is lost on the writing device",
+    "ref": "fixed by #10398 (regression pin)",
+    "name": "a task notes edit downloaded beside a done toggle the device wins survives on the writing device",
     "steps": [
       {
         "d": "A",
@@ -334,9 +311,112 @@
         "a": ["doneTask", "t1", true]
       }
     ],
-    "primary": "divergence:.task.entities.*.notes",
-    "signatures": ["divergence:.task.entities.*.notes", "field-reverted:task.notes"],
+    "signatures": [],
     "rejections": []
+  },
+  {
+    "class": "commuting-edit-beside-local-win",
+    "ref": "fixed by #10398 (regression pin)",
+    "name": "a done task tracked and renamed on two devices converges without delta arguments or a restart change",
+    "steps": [
+      {
+        "d": "B",
+        "a": ["doneTask", "t1", true],
+        "c": 1
+      },
+      {
+        "d": "B",
+        "a": ["renameTask", "t1", "B16"]
+      },
+      {
+        "d": "B",
+        "a": ["track", "t1", 2000],
+        "s": 1
+      },
+      {
+        "d": "C",
+        "a": ["track", "t1", 1000]
+      },
+      {
+        "d": "C",
+        "a": ["renameTask", "t1", "C26"]
+      }
+    ],
+    "signatures": [],
+    "rejections": []
+  },
+  {
+    "class": "remote-win-keeps-local-edit",
+    "ref": "#10260 (the time loss); guards #10398's rule against folding beside a remote winner",
+    "name": "a notes edit folded beside a later remote rename leaves every device agreeing on notes and title",
+    "steps": [
+      {
+        "d": "B",
+        "a": ["renameTask", "t2", "B8"]
+      },
+      {
+        "d": "B",
+        "s": 1
+      },
+      {
+        "d": "A",
+        "a": ["renameTask", "t2", "A21"],
+        "s": 1
+      },
+      {
+        "d": "C",
+        "a": ["track", "t2", 3000]
+      },
+      {
+        "d": "B",
+        "a": ["renameTask", "t2", "B25"],
+        "s": 1
+      },
+      {
+        "d": "A",
+        "s": 1
+      },
+      {
+        "d": "A",
+        "a": ["editTaskNotes", "t2", "A29"]
+      }
+    ],
+    "primary": "time-loss:task",
+    "signatures": ["time-loss:task"],
+    "rejections": ["CONFLICT_CONCURRENT [TASK] LWW Update"]
+  },
+  {
+    "class": "remote-win-keeps-local-edit",
+    "ref": "#10260 (the time loss); guards #10398's overlay of every local-win snapshot of a task; the server rejects the snapshot and it is rebuilt, as on master",
+    "name": "a notes edit beside two local-win snapshots of a tracked, twice renamed task reaches every device",
+    "steps": [
+      {
+        "d": "B",
+        "a": ["renameTask", "t1", "B16"],
+        "s": 1
+      },
+      {
+        "d": "C",
+        "a": ["renameTask", "t1", "C20"],
+        "s": 1
+      },
+      {
+        "d": "A",
+        "a": ["track", "t1", 3000],
+        "s": 1
+      },
+      {
+        "d": "B",
+        "a": ["track", "t1", 4000]
+      },
+      {
+        "d": "A",
+        "a": ["editTaskNotes", "t1", "A28"]
+      }
+    ],
+    "primary": "time-loss:task",
+    "signatures": ["time-loss:task"],
+    "rejections": ["CONFLICT_CONCURRENT [TASK] LWW Update"]
   },
   {
     "class": "auto-plan-blocks-delta-merge",
@@ -435,7 +515,7 @@
   {
     "class": "restart-changes-state",
     "ref": "#10381",
-    "name": "after a delete, a recreate and concurrent renames, a restart changes the time and title",
+    "name": "after a delete, a recreate and concurrent renames, a restart moves the task in Today; title and time stay",
     "steps": [
       {
         "d": "A",
@@ -467,19 +547,11 @@
         "s": 1
       }
     ],
-    "primary": "restart-changed:.task.entities.*.title",
+    "primary": "restart-changed:.tag.entities.*.taskIds.*",
     "signatures": [
-      "divergence:.project.entities.*.taskIds.*",
       "divergence:.tag.entities.*.taskIds.*",
-      "divergence:.task.entities.*.timeSpent",
-      "divergence:.task.entities.*.timeSpentOnDay",
-      "divergence:.task.entities.*.title",
       "divergence:.task.ids.*",
-      "restart-changed:.project.entities.*.taskIds.*",
       "restart-changed:.tag.entities.*.taskIds.*",
-      "restart-changed:.task.entities.*.timeSpent",
-      "restart-changed:.task.entities.*.timeSpentOnDay",
-      "restart-changed:.task.entities.*.title",
       "restart-changed:.task.ids.*"
     ],
     "rejections": ["CONFLICT_CONCURRENT [TASK] LWW Update"]
@@ -535,6 +607,45 @@
       "divergence:.note.entities.*.isPinnedToToday",
       "divergence:.note.todayOrder.*",
       "pending",
+      "stop:SYNC_MULTI_ENTITY_UNSUPPORTED side=remote actionType=[Note] Update Note Order"
+    ],
+    "rejections": []
+  },
+  {
+    "class": "reorder-kept-stop",
+    "ref": "coverage trace: the stop is kept by design (#10364 admission matrix); the replaced state is by design (AGENTS.md sync rule 7)",
+    "name": "the unpinning device keeps its data in the dialog after the stop and replaces the state",
+    "steps": [
+      {
+        "d": "A",
+        "a": ["editNote", "n1", "isPinnedToToday", true],
+        "s": 1
+      },
+      {
+        "d": "B",
+        "s": 1
+      },
+      {
+        "d": "C",
+        "s": 1
+      },
+      {
+        "d": "C",
+        "a": ["editNote", "n1", "isPinnedToToday", false]
+      },
+      {
+        "d": "B",
+        "a": ["reorderNotes", "T", 0, 1],
+        "s": 1
+      },
+      {
+        "d": "C",
+        "s": 1,
+        "k": "L"
+      }
+    ],
+    "primary": "stop:SYNC_MULTI_ENTITY_UNSUPPORTED side=remote actionType=[Note] Update Note Order",
+    "signatures": [
       "stop:SYNC_MULTI_ENTITY_UNSUPPORTED side=remote actionType=[Note] Update Note Order"
     ],
     "rejections": []
@@ -798,6 +909,286 @@
       }
     ],
     "signatures": [],
+    "rejections": []
+  },
+  {
+    "class": "replacement",
+    "ref": "coverage trace: the dropped edit is by design (AGENTS.md sync rule 7)",
+    "name": "a force upload while another device has an unsynced edit: that device uses the remote data and drops its edit",
+    "steps": [
+      {
+        "d": "B",
+        "a": ["renameTask", "t1", "B1"]
+      },
+      {
+        "d": "C",
+        "a": ["track", "t2", 2000],
+        "s": 1
+      },
+      {
+        "d": "A",
+        "a": ["forceUpload"]
+      },
+      {
+        "d": "B",
+        "s": 1,
+        "k": "R"
+      },
+      {
+        "d": "C",
+        "a": ["renameTask", "t2", "C2"],
+        "s": 1,
+        "r": 1,
+        "k": "R"
+      }
+    ],
+    "signatures": [],
+    "rejections": []
+  },
+  {
+    "class": "replacement",
+    "ref": "coverage trace: the replaced state is by design (AGENTS.md sync rule 7)",
+    "name": "a force upload while another device has an unsynced edit: that device keeps its data and replaces the state again",
+    "steps": [
+      {
+        "d": "B",
+        "a": ["renameTask", "t1", "B1"]
+      },
+      {
+        "d": "A",
+        "a": ["forceUpload"]
+      },
+      {
+        "d": "B",
+        "s": 1,
+        "k": "L"
+      },
+      {
+        "d": "A",
+        "a": ["track", "t1", 3000],
+        "s": 1,
+        "c": 1,
+        "r": 1,
+        "k": "R"
+      }
+    ],
+    "signatures": [],
+    "rejections": []
+  },
+  {
+    "class": "replacement",
+    "ref": "coverage trace: the replaced state is by design (AGENTS.md sync rule 7)",
+    "name": "a backup exported on one device and imported on another replaces the state, across compaction and restart",
+    "steps": [
+      {
+        "d": "A",
+        "a": ["track", "t1", 3000],
+        "s": 1
+      },
+      {
+        "d": "A",
+        "a": ["exportBackup", "b1"]
+      },
+      {
+        "d": "C",
+        "a": ["addNote", "n11", "P"],
+        "s": 1
+      },
+      {
+        "d": "B",
+        "a": ["importBackup", "b1"],
+        "s": 1,
+        "k": "L"
+      },
+      {
+        "d": "C",
+        "a": ["track", "t1", 2000],
+        "s": 1,
+        "k": "R"
+      },
+      {
+        "d": "B",
+        "a": ["renameTask", "t1", "B1"],
+        "s": 1,
+        "c": 1,
+        "r": 1
+      }
+    ],
+    "signatures": [],
+    "rejections": []
+  },
+  {
+    "class": "use-remote-app-features",
+    "ref": "#10412",
+    "name": "a restored backup discarded with use-remote data keeps the new-install app features through the next restart",
+    "steps": [
+      {
+        "d": "B",
+        "a": ["exportBackup", "b1"]
+      },
+      {
+        "d": "A",
+        "a": ["renameTask", "t1", "A1"],
+        "s": 1
+      },
+      {
+        "d": "B",
+        "a": ["importBackup", "b1"],
+        "s": 1,
+        "k": "R"
+      }
+    ],
+    "signatures": [],
+    "rejections": []
+  },
+  {
+    "class": "use-remote-app-features",
+    "ref": "fixed by #10412 (regression pin); the habit-order stop over different sets is kept by design (#10407)",
+    "name": "habit orders over different sets stop a device that then uses the remote data in the dialog, and a restart keeps its app features",
+    "steps": [
+      {
+        "d": "B",
+        "a": ["addHabit", "h11"]
+      },
+      {
+        "d": "A",
+        "a": ["reorderHabits", 7, 0],
+        "s": 1
+      },
+      {
+        "d": "B",
+        "a": ["reorderHabits", 3, 5]
+      },
+      {
+        "d": "B",
+        "s": 1,
+        "k": "R"
+      }
+    ],
+    "primary": "stop:SYNC_MULTI_ENTITY_UNSUPPORTED side=remote actionType=[SimpleCounter] Update SimpleCounter Order",
+    "signatures": [
+      "stop:SYNC_MULTI_ENTITY_UNSUPPORTED side=remote actionType=[SimpleCounter] Update SimpleCounter Order"
+    ],
+    "rejections": []
+  },
+  {
+    "class": "remote-win-keeps-local-edit",
+    "ref": "#10415 residual 1, follow-up #10408 (notes: #10423): a pending delta that loses to a resolution patch row stays on its device",
+    "name": "a tracked delta that loses to a field-patch row stays on its device only",
+    "steps": [
+      {
+        "d": "A",
+        "a": ["editTaskNotes", "t1", "A4"]
+      },
+      {
+        "d": "B",
+        "a": ["track", "t1", 2000]
+      },
+      {
+        "d": "A",
+        "s": 1,
+        "r": 1
+      },
+      {
+        "d": "C",
+        "a": ["editTaskNotes", "t1", "C20"],
+        "s": 1
+      }
+    ],
+    "primary": "divergence:.task.entities.*.timeSpent",
+    "signatures": [
+      "divergence:.task.entities.*.notes",
+      "divergence:.task.entities.*.timeSpent",
+      "divergence:.task.entities.*.timeSpentOnDay",
+      "time-loss:task"
+    ],
+    "rejections": []
+  },
+  {
+    "class": "restart-changes-state",
+    "ref": "#10421 (#10415 residual 2): a kept delta reaches the local-win fold, which hoists a done toggle ahead of a stale snapshot",
+    "name": "a done toggle hoisted ahead of a stale local-win snapshot changes on restart",
+    "steps": [
+      {
+        "d": "A",
+        "a": ["editTaskNotes", "t1", "A14"]
+      },
+      {
+        "d": "C",
+        "a": ["editTaskNotes", "t1", "C17"]
+      },
+      {
+        "d": "A",
+        "a": ["track", "t1", 2000]
+      },
+      {
+        "d": "C",
+        "a": ["doneTask", "t1", true],
+        "s": 1
+      },
+      {
+        "d": "B",
+        "a": ["track", "t1", 3000]
+      }
+    ],
+    "primary": "restart-changed:.task.entities.*.isDone",
+    "signatures": [
+      "divergence:.task.entities.*.doneOn",
+      "divergence:.task.entities.*.isDone",
+      "divergence:.task.entities.*.notes",
+      "field-reverted:task.isDone",
+      "field-unwritten:task.notes",
+      "restart-changed:.task.entities.*.doneOn",
+      "restart-changed:.task.entities.*.isDone",
+      "restart-changed:.task.entities.*.notes"
+    ],
+    "rejections": []
+  },
+  {
+    "class": "remote-win-keeps-local-edit",
+    "ref": "#10260: a winning side that also tracks time refuses the field patch (#10415 residual; #10408)",
+    "name": "a done toggle that loses a rename crossing to a device that also tracked the task stays on its device only",
+    "steps": [
+      {
+        "d": "A",
+        "a": ["doneTask", "t2", true]
+      },
+      {
+        "d": "A",
+        "a": ["renameTask", "t2", "A1"]
+      },
+      {
+        "d": "B",
+        "a": ["editTaskNotes", "t2", "B2"]
+      },
+      {
+        "d": "B",
+        "a": ["renameTask", "t2", "B3"]
+      },
+      {
+        "d": "C",
+        "a": ["track", "t2", 2000]
+      },
+      {
+        "d": "C",
+        "a": ["renameTask", "t2", "C4"],
+        "s": 1
+      },
+      {
+        "d": "B",
+        "s": 1
+      },
+      {
+        "d": "A",
+        "s": 1
+      }
+    ],
+    "primary": "divergence:.task.entities.*.isDone",
+    "signatures": [
+      "divergence:.task.entities.*.doneOn",
+      "divergence:.task.entities.*.isDone",
+      "field-reverted:task.isDone"
+    ],
     "rejections": []
   }
 ]
