@@ -2,8 +2,8 @@ name: Build and Push SuperSync Docker Image
 
 on:
   push:
-    branches:
-      - master
+    # branches:  # Uncomment before merging
+    #   - master # Uncomment before merging
     paths:
       - '.dockerignore'
       - '.github/workflows/supersync-docker.yml'
