@@ -49,6 +49,7 @@ import { openWorkContextSettingsDialog } from '../../features/work-context/dialo
 import { Log } from '../../core/log';
 import { PlainspaceShareService } from '../../features/issue/providers/plainspace/plainspace-share.service';
 import { selectIsProjectSharedOnPlainspace } from '../../features/issue/store/issue-provider.selectors';
+import { DIALOG_AUTO_FOCUS_TYPING } from '../../util/dialog-auto-focus';
 
 @Component({
   selector: 'work-context-menu',
@@ -82,6 +83,7 @@ export class WorkContextMenuComponent implements OnInit {
   isArchived$: Observable<boolean> = of(false);
   isDone$: Observable<boolean> = of(false);
   isSharedOnPlainspace$: Observable<boolean> = of(false);
+  inviteUrl$: Observable<string | null> = of(null);
   base: string = 'project';
   shareSupport: ShareSupport = 'none';
 
@@ -103,6 +105,7 @@ export class WorkContextMenuComponent implements OnInit {
       this.isSharedOnPlainspace$ = this._store.select(
         selectIsProjectSharedOnPlainspace(this.contextId),
       );
+      this.inviteUrl$ = this._plainspaceShareService.inviteUrl$(this.contextId);
     }
     const support = await this._shareService.getShareSupport();
     this._setShareSupport(support);
@@ -169,6 +172,7 @@ export class WorkContextMenuComponent implements OnInit {
       const result = await firstValueFrom(
         this._matDialog
           .open(DialogPromptComponent, {
+            autoFocus: DIALOG_AUTO_FOCUS_TYPING,
             restoreFocus: true,
             data: {
               txtValue: project.title,
@@ -193,6 +197,7 @@ export class WorkContextMenuComponent implements OnInit {
     const result = await firstValueFrom(
       this._matDialog
         .open(DialogPromptComponent, {
+          autoFocus: DIALOG_AUTO_FOCUS_TYPING,
           restoreFocus: true,
           data: {
             txtValue: tag.title,
@@ -366,6 +371,12 @@ export class WorkContextMenuComponent implements OnInit {
     );
   }
 
+  copyPlainspaceInviteUrl(url: string): void {
+    // Synchronous from the click (the URL was resolved when the menu opened);
+    // surfaces its own copied/failed snack.
+    void this._plainspaceShareService.copyInviteUrl(url);
+  }
+
   async duplicateProject(): Promise<void> {
     try {
       await this._projectService.duplicateProject(this.contextId);
@@ -382,6 +393,7 @@ export class WorkContextMenuComponent implements OnInit {
   addSection(): void {
     this._matDialog
       .open(DialogPromptComponent, {
+        autoFocus: DIALOG_AUTO_FOCUS_TYPING,
         // Omit `message` to match the Add Tag pattern — the dialog
         // collapses its outer padding when there's no message text
         // (`dialog-prompt.scss: mat-dialog-content.isNoMsg`).
